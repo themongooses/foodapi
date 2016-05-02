@@ -1,0 +1,16 @@
+{
+  "facts":[
+    {
+      "sodium": 0.3,
+      "fat": 11.2,
+      "sugar": 100,
+      "protein": 120,
+      "food_group": "grain",
+      "amount": 5
+    },
+    {
+      "nfact_id": 2,
+      "sugar": 500
+    }
+  ]
+}

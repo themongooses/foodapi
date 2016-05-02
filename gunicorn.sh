@@ -1,0 +1,1 @@
+gunicorn --name mongoose --bind 127.0.0.1:9001 -w 2 -k gevent --reload --log-file /home/ubuntu/gunicorn.log app:app &
