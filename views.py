@@ -557,6 +557,12 @@ def get_menu_by_time_of_day_and_date(time_of_day, date):
     :return: A JSON format in the form of
     {"menu": {<A JSON object representing a menu record that also contains a list of recipe objects for that menu record>}}
     """
+    if not check_date(date):
+        return jsonify({"error": "Dates must be in YYYY-MM-DD format"})
+
+    if time_of_day not in Menu.__columns__['time_of_day']:
+        return jsonify({"error": "Time of day must be one of {}".format(Menu.__columns__['time_of_day'])})
+
     menu = Menu(db).find_by_attribute("date", date, limit=-1)
     menu = filter(lambda x: x['time_of_day'] == time_of_day, menu)
     if not menu:
@@ -574,6 +580,9 @@ def get_menu_by_date(date):
     :return: A JSON format in the form of
     {"menus": [<list of JSON objects representing a menu record that also contains a list of recipe objects for that menu record>]}
     """
+    if not check_date(date):
+        return jsonify({"error": "Dates must be in YYYY-MM-DD format"})
+
     menus = Menu(db).find_by_attribute("date", date, limit=-1)
     if not menus:
         return jsonify({"error": "No menus for the date {}".format(date)}), 404
@@ -603,6 +612,9 @@ def get_menu_in_date_range(begin, end):
     :return: A JSON format in the form of
     {"menus": [<list of JSON objects representing a menu record that also contains a list of recipe objects for that menu record>]}
     """
+    if not check_date(begin) or not check_date(end):
+        return jsonify({"error": "Dates must be in YYYY-MM-DD format"})
+
     menus = Menu(db).all(comparisons={"date": ["BETWEEN", [begin, end]]})
     if not menus:
         return jsonify({"error": "No menus between dates {} and {} found".format(begin, end)}), 404
