@@ -8,6 +8,10 @@ from werkzeug.routing import BaseConverter
 
 
 class CustomJSONEncoder(JSONEncoder):
+    """
+    Normalizes date and date-time outputs when serializing JSON
+    in requests to the ISO format.
+    """
     def default(self, obj):
         try:
             if isinstance(obj, datetime) or isinstance(obj, date):
@@ -20,16 +24,12 @@ class CustomJSONEncoder(JSONEncoder):
         return JSONEncoder.default(self, obj)
 
 
-class ListConverter(BaseConverter):
-    def to_python(self, value):
-        return value.split('+')
-
-    def to_url(self, values):
-        return '+'.join(BaseConverter.to_url(value)
-                        for value in values)
-
-
 class DateConverter(BaseConverter):
+    """
+    Normalizes incoming values in a route definition marked
+    as `date` to follow the YYYY-MM-DD format that the database
+    expects
+    """
     def to_python(self, value):
         return datetime.strptime(value, "%Y-%m-%d").date()
 
@@ -38,6 +38,12 @@ class DateConverter(BaseConverter):
 
 
 def nocache(view):
+    """
+    Adds response headers to prevent clients from caching
+    responses
+    :param view:
+    :return:
+    """
     @wraps(view)
     def no_cache(*args, **kwargs):
         response = make_response(view(*args, **kwargs))
@@ -52,6 +58,12 @@ def nocache(view):
 
 
 def check_date(date):
+    """
+    Checks the validity of a string as a date string suitable
+    for the database.
+    :param date:
+    :return:
+    """
     try:
         import datetime
         datetime.datetime.strptime(date, '%Y-%m-%d')

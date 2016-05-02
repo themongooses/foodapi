@@ -15,7 +15,7 @@ def fridge():
     Gets all food records that have their in_fridge attribute set to true
     :return: A JSON object of {"fridge": [<a list of food records in the form of JSON objects>]}
     """
-    return jsonify({"fridge": [food for food in Food(db).all(cols={"in_fridge": ["=", True]})]})
+    return jsonify({"fridge": [food for food in Food(db).all(comparisons={"in_fridge": ["=", True]})]})
 
 
 #################
@@ -603,7 +603,7 @@ def get_menu_in_date_range(begin, end):
     :return: A JSON format in the form of
     {"menus": [<list of JSON objects representing a menu record that also contains a list of recipe objects for that menu record>]}
     """
-    menus = Menu(db).all(cols={"date": ["BETWEEN", [begin, end]]})
+    menus = Menu(db).all(comparisons={"date": ["BETWEEN", [begin, end]]})
     if not menus:
         return jsonify({"error": "No menus between dates {} and {} found".format(begin, end)}), 404
 
