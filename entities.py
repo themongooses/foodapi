@@ -1,6 +1,8 @@
 from collections import OrderedDict
 from datetime import date
 
+from flask import g
+
 
 class DbEntity(object):
     cursor = None
@@ -11,16 +13,14 @@ class DbEntity(object):
     __keys__ = []
     __foreign_keys__ = dict()
 
-    def __init__(self, db):
+    def __init__(self):
         """
         Initializes the database entity using the connection provided
         by the db parameter. If __columns__ is empty, then it will
         fill the columns with the column names in the database, but will
         not fill in the python type mappings; they will all be null
-        :param db:
         """
-        self.db = db
-        cursor = self.db.cursor()
+        cursor = g.db.cursor()
         cursor.execute("SELECT * FROM {table} LIMIT 1".format(table=self.__table__))
         self.data = OrderedDict(**{i[0]: None for i in cursor.description})
         if not self.__columns__:
@@ -35,7 +35,7 @@ class DbEntity(object):
         :param id: The id to find
         :return: A dict() representing the returned record from the database
         """
-        cursor = self.db.cursor()
+        cursor = g.db.cursor()
         placeholder, value = self.prep_for_query(id)
         sql = "SELECT * FROM {table} WHERE {key}={placeholder} LIMIT 1".format(table=self.__table__,
                                                                                key=self.__keys__[0],
@@ -67,7 +67,7 @@ class DbEntity(object):
         """
         if attribute not in self.__columns__:
             raise TypeError("Invalid column name")
-        cursor = self.db.cursor()
+        cursor = g.db.cursor()
         placeholder, value = self.prep_for_query(value)
         sql = "SELECT * FROM {table} WHERE {attr}={placeholder}{limit}".format(table=self.__table__,
                                                                                attr=attribute,
@@ -111,7 +111,7 @@ class DbEntity(object):
         """
         if comparisons is None:
             comparisons = dict()
-        cursor = self.db.cursor()
+        cursor = g.db.cursor()
         values = []
         where_string = ""
         if comparisons:
@@ -153,7 +153,7 @@ class DbEntity(object):
         sql = "INSERT INTO {table} ({columns}) VALUES ({placeholders})".format(table=self.__table__,
                                                                                columns=", ".join(vals),
                                                                                placeholders=placeholders)
-        cursor = self.db.cursor()
+        cursor = g.db.cursor()
         cursor.execute(sql, tuple(values))
         self.save()
         cursor.execute("SELECT MAX({key}) AS id FROM {table} LIMIT 1".format(key=self.__keys__[0],
@@ -203,7 +203,7 @@ class DbEntity(object):
         Flushes changes done by the cursor to the database
         :return:
         """
-        self.db.commit()
+        g.db.commit()
 
     def flush(self):
         """
@@ -222,7 +222,7 @@ class DbEntity(object):
                                                                                  placeholders=placeholders,
                                                                                  key=key,
                                                                                  key_value=key_value)
-        cursor = self.db.cursor()
+        cursor = g.db.cursor()
         cursor.execute(sql, tuple(values))
         cursor.close()
         self.save()
@@ -241,8 +241,8 @@ class Food(DbEntity):
         "fk_nfact_id": "nutritional_fact.nfact_id"
     }
 
-    def __init__(self, db):
-        DbEntity.__init__(self, db)
+    def __init__(self):
+        DbEntity.__init__(self)
 
     @property
     def nutrition(self):
@@ -255,7 +255,7 @@ class Food(DbEntity):
         if not self.data.get('fk_nfact_id', None):
             self.data['nutrition'] = {}
         else:
-            self.data['nutrition'] = NutritionalFact(self.db).find_by_id(self.data['fk_nfact_id'])
+            self.data['nutrition'] = NutritionalFact().find_by_id(self.data['fk_nfact_id'])
 
         return self.data['nutrition']
 
@@ -272,14 +272,14 @@ class Food(DbEntity):
         if not isinstance(nutrition_facts, dict):
             raise TypeError("Attempting to set Food.nutrition with a non-dict object")
         if len(nutrition_facts) == 0 and self.data.get('fk_nfact_id', None):
-            cursor = self.db.cursor()
+            cursor = g.db.cursor()
             cursor.execute("DELETE FROM mongoose.nutritional_fact WHERE nfact_id=%s", (self.data['fk_nfact_id']))
             self.data['nutrition'] = {}
             self.data['fk_nfact_id'] = None
             self.save()
             cursor.close()
         else:
-            nfact = NutritionalFact(self.db)
+            nfact = NutritionalFact()
             nfact.find_by_id(self.data['fk_nfact_id'])
             nfact.update(**nutrition_facts)
             self.data['nutrition'] = nfact.data
@@ -299,8 +299,8 @@ class NutritionalFact(DbEntity):
     }
     __keys__ = ["nfact_id"]
 
-    def __init__(self, db):
-        DbEntity.__init__(self, db)
+    def __init__(self):
+        DbEntity.__init__(self)
 
 
 class Recipe(DbEntity):
@@ -313,8 +313,8 @@ class Recipe(DbEntity):
     }
     __keys__ = ["rec_id"]
 
-    def __init__(self, db):
-        DbEntity.__init__(self, db)
+    def __init__(self):
+        DbEntity.__init__(self)
 
     @property
     def ingredients(self):
@@ -323,13 +323,13 @@ class Recipe(DbEntity):
         update the internal cache to hold the ingredients
         :return:
         """
-        cursor = self.db.cursor()
+        cursor = g.db.cursor()
         cursor.execute(
             "SELECT *\n"
             "FROM mongoose.food\n"
             "WHERE food_id IN (SELECT food_id\n"
             "                  FROM mongoose.ingredients\n"
-            "                  WHERE recipe_id = % s)",
+            "                  WHERE recipe_id = %s)",
             (self.id,))
         self.data['ingredients'] = cursor.fetchall()
         return self.data['ingredients']
@@ -350,7 +350,7 @@ class Recipe(DbEntity):
             raise TypeError("Attempting to set Recipe.ingredients property with a non-list object")
         if len(ingredient_ids) > 0 and not all(type(x) == int for x in ingredient_ids):
             raise TypeError("Non-integers being passed to Recipe.ingredients")
-        cursor = self.db.cursor()
+        cursor = g.db.cursor()
         # clear out the cached recipe objects ids
         self.data['ingredients'] = []
         # Delete the recipe-to-menu records
@@ -380,8 +380,8 @@ class Menu(DbEntity):
     }
     __keys__ = ["id"]
 
-    def __init__(self, db):
-        DbEntity.__init__(self, db)
+    def __init__(self):
+        DbEntity.__init__(self)
 
     @property
     def recipes(self):
@@ -390,13 +390,13 @@ class Menu(DbEntity):
         caches them in the internal cache
         :return:
         """
-        cursor = self.db.cursor()
+        cursor = g.db.cursor()
         cursor.execute(
             "SELECT *\n"
             "FROM mongoose.recipes\n"
             "WHERE rec_id IN (SELECT recipe_id\n"
             "                 FROM mongoose.serves\n"
-            "                 WHERE menu_id = % s)",
+            "                 WHERE menu_id = %s)",
             (self.id,))
         self.data['recipes'] = cursor.fetchall()
         cursor.close()
@@ -421,7 +421,7 @@ class Menu(DbEntity):
             raise TypeError("Attempting to set Menu.recipes property with a non-list object")
         if not all(type(x) == int for x in recipe_ids):
             raise TypeError("Non-integers being passed to Menu.recipes")
-        cursor = self.db.cursor()
+        cursor = g.db.cursor()
         # clear out the cached recipe objects ids
         self.data['recipes'] = []
         # Delete the recipe-to-menu records

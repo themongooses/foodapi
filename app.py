@@ -18,17 +18,29 @@ elif os.environ.get("MONGOOSE_SERVER_ENV", "").upper() == "TESTING":
 else:
     app.config.from_object(DevelopmentConfig)
 
-# Connect to the database
-db = pymysql.connect(host=app.config['MYSQL_DB_HOST'],
-                     user=app.config['MYSQL_USER_NAME'],
-                     password=app.config['MYSQL_PASSWORD'],
-                     db=app.config['MYSQL_DB_NAME'],
-                     charset='utf8mb4',
-                     cursorclass=pymysql.cursors.DictCursor)
 # Fix for JSON Encoding datetime.date objects
 app.json_encoder = CustomJSONEncoder
 # Add a date url parameter type
 app.url_map.converters['date'] = DateConverter
+
+
+# Connect to the database
+@app.before_request
+def check_db_connection():
+    g.db = pymysql.connect(host=app.config['MYSQL_DB_HOST'],
+                           user=app.config['MYSQL_USER_NAME'],
+                           password=app.config['MYSQL_PASSWORD'],
+                           db=app.config['MYSQL_DB_NAME'],
+                           charset='utf8mb4',
+                           cursorclass=pymysql.cursors.DictCursor)
+
+
+@app.teardown_request
+def teardown_request(exception):
+    db = getattr(g, 'db', None)
+    if db is not None:
+        db.close()
+
 
 # Views (routes) imported here and not at the top
 # to resolve the circular dependency where the

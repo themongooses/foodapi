@@ -1,6 +1,6 @@
-from flask import request, jsonify
+from flask import request, jsonify, g
 
-from app import app, db
+from app import app
 from entities import Food, Menu, NutritionalFact, Recipe
 from utils import nocache, check_date
 from copy import deepcopy
@@ -16,7 +16,7 @@ def fridge():
     Gets all food records that have their in_fridge attribute set to true
     :return: A JSON object of {"fridge": [<a list of food records in the form of JSON objects>]}
     """
-    return jsonify({"fridge": [food for food in Food(db).all(comparisons={"in_fridge": ["=", True]})]})
+    return jsonify({"fridge": [food for food in Food().all(comparisons={"in_fridge": ["=", True]})]})
 
 
 #################
@@ -53,7 +53,7 @@ def recipe_update_create():
         return jsonify({"error": "No JSON supplied"}), 400
     id_column = Recipe.__keys__[0]
     ret_val = []
-    rec = Recipe(db)
+    rec = Recipe()
     j = request.json
     for recipe in j['recipes']:
         recipe_id = recipe.get(id_column, None)
@@ -88,10 +88,10 @@ def recipe_delete(rec_id):
     :param rec_id: The Recipe id to delete
     :return: JSON data in the form of {"success":<boolean value whether a record was deleted or not>}
     """
-    cursor = db.cursor()
+    cursor = g.db.cursor()
     res = cursor.execute("DELETE FROM {table} WHERE {key}=%s".format(table=Recipe.__table__,
                                                                      key=Recipe.__keys__[0]), (rec_id,))
-    db.commit()
+    g.db.commit()
     cursor.close()
     return jsonify({"success": res != 0})
 
@@ -103,8 +103,8 @@ def get_all_recipes():
     Fetch all recipes in the database
     :return: JSON data in the form of {"recipes":[<list of JSON objects representing the recipes and their ingredients>]}
     """
-    recipes = Recipe(db).all()
-    cursor = db.cursor()
+    recipes = Recipe().all()
+    cursor = g.db.cursor()
     for recipe in recipes:
         id_val = recipe[Recipe.__keys__[0]]
         cursor.execute(
@@ -129,12 +129,12 @@ def get_recipe_by_id(rec_id):
     :param rec_id: The numeric id of the recipe to find
     :return: JSON object representing the recipe and its ingredient ids
     """
-    recipe = Recipe(db).find_by_id(rec_id)
+    recipe = Recipe().find_by_id(rec_id)
     if not recipe:
         return jsonify({"error": "No recipe with id {} found".format(rec_id)}), 404
 
     id_val = recipe[Recipe.__keys__[0]]
-    cursor = db.cursor()
+    cursor = g.db.cursor()
     cursor.execute(
         "SELECT *\n"
         "FROM mongoose.food\n"
@@ -156,10 +156,10 @@ def get_recipe_by_name(rec_name):
     :param rec_name: A string value with a recipe name
     :return: JSON data in the form of {"recipes":[<list of JSON objects representing the recipes and their ingredients>]}
     """
-    recipes = Recipe(db).find_by_attribute("rec_name", rec_name, limit=-1)
+    recipes = Recipe().find_by_attribute("rec_name", rec_name, limit=-1)
     if not recipes:
         return jsonify(({"error": "No recipes with name \"{}\" found".format(rec_name)})), 404
-    cursor = db.cursor()
+    cursor = g.db.cursor()
     for recipe in recipes:
         id_val = recipe[Recipe.__keys__[0]]
         cursor.execute(
@@ -209,7 +209,7 @@ def food_update_create():
         return jsonify({"error": "No JSON supplied"}), 400
     id_column = Food.__keys__[0]
     ret_val = []
-    f = Food(db)
+    f = Food()
     j = request.json
     for food in j['food']:
         food_id = food.get(id_column, None)
@@ -238,9 +238,9 @@ def delete_food_item(id):
     :return: A JSON object with a "success" attribute specifying if anything was deleted or now
     """
     id_col = Food.__keys__[0]
-    cursor = db.cursor()
+    cursor = g.db.cursor()
     ret = cursor.execute("DELETE FROM mongoose.food WHERE {key}=%s".format(key=id_col), (id,))
-    db.commit()
+    g.db.commit()
     cursor.close()
     return jsonify({"success": ret != 0})
 
@@ -253,9 +253,9 @@ def get_all_food():
     :return: A JSON structure in the form of
     {"food":[<list of JSON objects representing food records in the database and their nutrition facts>]}
     """
-    all_food = Food(db).all()
+    all_food = Food().all()
     for food in all_food:
-        food['nutrition'] = NutritionalFact(db).find_by_id(food['fk_nfact_id']) or dict()
+        food['nutrition'] = NutritionalFact().find_by_id(food['fk_nfact_id']) or dict()
 
     return jsonify({"food": all_food})
 
@@ -268,11 +268,11 @@ def get_food_by_id(id):
     :param id: The numeric id of the food record to find
     :return: A JSON object representation of the food record along with its nutritional facts
     """
-    food = Food(db).find_by_id(id)
+    food = Food().find_by_id(id)
     if not food:
         return jsonify({"error": "No food with id {} found".format(id)}), 404
 
-    food['nutrition'] = NutritionalFact(db).find_by_id(food['fk_nfact_id']) or dict()
+    food['nutrition'] = NutritionalFact().find_by_id(food['fk_nfact_id']) or dict()
 
     return jsonify(food)
 
@@ -286,11 +286,11 @@ def get_food_by_name(food_name):
     :return: A JSON structure in the form of
     {"food":[<list of JSON objects representing food records in the database and their nutrition facts>]}
     """
-    food = Food(db).find_by_attribute("food_name", food_name, limit=-1)
+    food = Food().find_by_attribute("food_name", food_name, limit=-1)
     if not food:
         return jsonify({"error": "No food with name \"{}\" found".format(food_name)}), 404
     for f in food:
-        f['nutrition'] = NutritionalFact(db).find_by_id(f['fk_nfact_id']) or dict()
+        f['nutrition'] = NutritionalFact().find_by_id(f['fk_nfact_id']) or dict()
     return jsonify({"food": food})
 
 
@@ -332,7 +332,7 @@ def nutrition_post():
         return jsonify({"error": "No JSON supplied"}), 400
     id_column = NutritionalFact.__keys__[0]
     ret_val = []
-    nfact = NutritionalFact(db)
+    nfact = NutritionalFact()
     j = request.json
     for fact in j['facts']:
         fact_id = fact.get(id_column, None)
@@ -357,11 +357,11 @@ def nutrition_delete(nfact_id):
      was removed from the database or not
     """
     id_column = NutritionalFact.__keys__[0]
-    cursor = db.cursor()
+    cursor = g.db.cursor()
     res = cursor.execute(
         "DELETE FROM {table} WHERE {id_column}=%s".format(table=NutritionalFact.__table__, id_column=id_column),
         (nfact_id,))
-    db.commit()
+    g.db.commit()
     cursor.close()
     return jsonify({"success": res != 0})
 
@@ -374,7 +374,7 @@ def get_all_nutrition():
     :return: A JSON object of the following structure
     {"nutritional_facts":[<list of objects with similar structure to nutritional_fact schema>]}
     """
-    return jsonify({"nutritional_facts": NutritionalFact(db).all()})
+    return jsonify({"nutritional_facts": NutritionalFact().all()})
 
 
 @app.route('/nutrition/<int:nfact_id>/', methods=["GET"])
@@ -385,7 +385,7 @@ def get_nutrition_by_id(nfact_id):
     :param nfact_id: The id of the nutritional fact
     :return: A JSON object representing the nutritional fact in the database
     """
-    nutritional_fact = NutritionalFact(db).find_by_id(nfact_id)
+    nutritional_fact = NutritionalFact().find_by_id(nfact_id)
     if not nutritional_fact:
         return jsonify({"error": "No nutritional fact with id {} found".format(nfact_id)}), 404
 
@@ -425,7 +425,7 @@ def menu_post():
         return jsonify({"error": "No JSON supplied"}), 400
 
     id_col = Menu.__keys__[0]
-    menu = Menu(db)
+    menu = Menu()
     ret_val = []
 
     for m in request.json['menus']:
@@ -464,8 +464,8 @@ def get_all_menus():
     :return: A JSON format in the form of
     {"menus": [<list of JSON objects representing a menu record that also contains a list of recipe objects for that menu record>]}
     """
-    cursor = db.cursor()
-    menus = Menu(db).all()
+    cursor = g.db.cursor()
+    menus = Menu().all()
 
     for menu in menus:
         cursor.execute(
@@ -489,7 +489,7 @@ def get_menu_by_id(id):
     :param id: The id to find the record by
     :return: A JSON object representing a menu record along with its associated list of recipe objects
     """
-    menu = Menu(db)
+    menu = Menu()
     menu_data = menu.find_by_id(id)
 
     if not menu_data:
@@ -510,11 +510,11 @@ def delete_menu(id):
     :return: A JSON object with a success attribute representing whether any rows were deleted or not
     """
     id_column = Menu.__keys__[0]
-    cursor = db.cursor()
+    cursor = g.db.cursor()
     res = cursor.execute("DELETE FROM {table} WHERE {column}=%s".format(table=Menu.__table__,
                                                                         column=id_column), (id,))
     cursor.close()
-    db.commit()
+    g.db.commit()
 
     return jsonify({"success": res != 0})
 
@@ -528,11 +528,11 @@ def get_menus_by_time_of_day(time_of_day):
     :return: A JSON format in the form of
     {"menus": [<list of JSON objects representing a menu record that also contains a list of recipe objects for that menu record>]}
     """
-    menus = Menu(db).find_by_attribute("time_of_day", time_of_day, limit=-1)
+    menus = Menu().find_by_attribute("time_of_day", time_of_day, limit=-1)
     if not menus:
         return jsonify({"error": "No menus with the time of day {} found".format(time_of_day)}), 404
 
-    cursor = db.cursor()
+    cursor = g.db.cursor()
     for menu in menus:
         cursor.execute(
             "SELECT *\n"
@@ -564,7 +564,7 @@ def get_menu_by_time_of_day_and_date(time_of_day, date):
     if time_of_day not in Menu.__columns__['time_of_day']:
         return jsonify({"error": "Time of day must be one of {}".format(Menu.__columns__['time_of_day'])})
 
-    menu = Menu(db).find_by_attribute("date", date, limit=-1)
+    menu = Menu().find_by_attribute("date", date, limit=-1)
     menu = filter(lambda x: x['time_of_day'] == time_of_day, menu)
     if not menu:
         return jsonify({"error": "No menu found for the time of day {} at date {}".format(time_of_day, date)})
@@ -584,11 +584,11 @@ def get_menu_by_date(date):
     if not check_date(date):
         return jsonify({"error": "Dates must be in YYYY-MM-DD format"})
 
-    menus = Menu(db).find_by_attribute("date", date, limit=-1)
+    menus = Menu().find_by_attribute("date", date, limit=-1)
     if not menus:
         return jsonify({"error": "No menus for the date {}".format(date)}), 404
 
-    cursor = db.cursor()
+    cursor = g.db.cursor()
     for menu in menus:
         cursor.execute(
             "SELECT *\n"
@@ -616,11 +616,11 @@ def get_menu_in_date_range(begin, end):
     if not check_date(begin) or not check_date(end):
         return jsonify({"error": "Dates must be in YYYY-MM-DD format"})
 
-    menus = Menu(db).all(comparisons={"date": ["BETWEEN", [begin, end]]})
+    menus = Menu().all(comparisons={"date": ["BETWEEN", [begin, end]]})
     if not menus:
         return jsonify({"error": "No menus between dates {} and {} found".format(begin, end)}), 404
 
-    cursor = db.cursor()
+    cursor = g.db.cursor()
     for menu in menus:
         cursor.execute(
             "SELECT *\n"
