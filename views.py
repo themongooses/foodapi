@@ -3,6 +3,7 @@ from flask import request, jsonify
 from app import app, db
 from entities import Food, Menu, NutritionalFact, Recipe
 from utils import nocache, check_date
+from copy import deepcopy
 
 
 ################
@@ -46,7 +47,7 @@ def recipe_update_create():
     Otherwise, if there is no "rec_id" for an object, the system will assume the values
     given are for a new record in the database and will create a new record.
 
-    :return: A JSON object of {"recipes":[<list of ids corresponding to recipes updated or created in the system]}
+    :return: A JSON object of {"recipes":[<list of recipes updated or created in the system>]}
     """
     if not request.json or len(request.json) == 0:
         return jsonify({"error": "No JSON supplied"}), 400
@@ -69,12 +70,12 @@ def recipe_update_create():
             rec.create(**recipe)
         if recipe.get('ingredients', None):
             try:
-                recipe.ingredients = recipe['ingredients']
+                rec.ingredients = recipe['ingredients']
             except TypeError:
                 return jsonify({
                     "error": "Ingredient entries must be a list of ids referencing food items in the database"
                 })
-        ret_val.append(rec.id)
+        ret_val.append(deepcopy(rec.data))
     return jsonify({"recipes": ret_val})
 
 
@@ -126,7 +127,7 @@ def get_recipe_by_id(rec_id):
     """
     Gets a single recipe by its id
     :param rec_id: The numeric id of the recipe to find
-    :return: JSON response in the form of {"recipe": <A JSON object representing a recipe and its ingredients}}
+    :return: JSON object representing the recipe and its ingredient ids
     """
     recipe = Recipe(db).find_by_id(rec_id)
     if not recipe:
@@ -202,7 +203,7 @@ def food_update_create():
     Otherwise, if there is no "food_id" for an object, the system will assume the values
     given are for a new record in the database and will create a new record.
 
-    :return: A JSON object of {"food":[<list of ids corresponding to food updated or created in the system]}
+    :return: A JSON object of {"food":[<list of JSON objects representing food items updated or created>]}
     """
     if not request.json or len(request.json) == 0:
         return jsonify({"error": "No JSON supplied"}), 400
@@ -223,7 +224,7 @@ def food_update_create():
                 f.nutrition = j['nutrition']
             except TypeError:
                 return jsonify({"error": "Nutrition entries must be objects similar to nutritional_fact schema"})
-        ret_val.append(f.id)
+        ret_val.append(deepcopy(f.data))
 
     return jsonify({"food": ret_val})
 
@@ -325,7 +326,7 @@ def nutrition_post():
     given are for a new record in the database and will create a new record.
 
     :return: A JSON object of
-    {"nutritional_facts":[<list of ids corresponding to nutrition updated or created in the system]}
+    {"nutritional_facts":[<list of JSON objects representing updated or created entities>]}
     """
     if not request.json or len(request.json) == 0:
         return jsonify({"error": "No JSON supplied"}), 400
@@ -341,7 +342,7 @@ def nutrition_post():
             nfact.flush()
         else:
             nfact.create(**fact)
-        ret_val.append(nfact.id)
+        ret_val.append(deepcopy(nfact.data))
     return jsonify({"nutritional_facts": ret_val})
 
 
@@ -418,7 +419,7 @@ def menu_post():
     Otherwise, if there is no "id" for an object, the system will assume the values
     given are for a new record in the database and will create a new record.
 
-    :return: A JSON object of {"menu":[<list of ids corresponding to menu updated or created in the system]}
+    :return: A JSON object of {"menu":[<list of JSON Objects corresponding to menus updated or created in the system]}
     """
     if not request.json or len(request.json) == 0:
         return jsonify({"error": "No JSON supplied"}), 400
@@ -444,13 +445,13 @@ def menu_post():
             menu.flush()
         else:
             menu.create(**m)
-        if m.get('recipes', None):
+        if m.get('recipes', None) is not None:
             try:
                 menu.recipes = m['recipes']
             except TypeError:
                 return jsonify({"error": "Invalid data. The recipes attribute must be a list of numeric recipe ids"})
 
-        ret_val.append(menu.id)
+        ret_val.append(deepcopy(menu.data))
 
     return jsonify({"menus": ret_val})
 

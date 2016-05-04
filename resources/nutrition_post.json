@@ -9,6 +9,14 @@
       "amount": 5
     },
     {
+      "sodium": 0.43,
+      "fat": 1.2,
+      "sugar": 100.01,
+      "protein": 120,
+      "food_group": "meat",
+      "amount": 5
+    },
+    {
       "nfact_id": 2,
       "sugar": 500
     }

@@ -2,7 +2,7 @@ from collections import OrderedDict
 from datetime import date
 
 
-class DbEntity:
+class DbEntity(object):
     cursor = None
     db = None
     data = OrderedDict()
@@ -348,8 +348,7 @@ class Recipe(DbEntity):
             raise TypeError("Non-integers being passed to Recipe.ingredients")
         cursor = self.db.cursor()
         # clear out the cached recipe objects ids
-        if self.data.get('ingredients', None):
-            del self.data['ingredients']
+        self.data['ingredients'] = []
         # Delete the recipe-to-menu records
         cursor.execute("DELETE FROM mongoose.ingredients WHERE recipe_id=%s", (self.id,))
         self.save()
@@ -358,12 +357,12 @@ class Recipe(DbEntity):
             cursor.executemany("INSERT INTO mongoose.ingredients(recipe_id, food_id) VALUES (%s, %s)",
                                [(self.id, food_id) for food_id in ingredient_ids])
             self.save()
-        # rebuild the cache
-        cursor.execute(
-            "SELECT * FROM mongoose.food WHERE food_id IN ({placeholders})".format(
-                placeholders=", ".join(["%s" for _ in range(len(ingredient_ids))])),
-            tuple(ingredient_ids))
-        self.data['ingredients'] = cursor.fetchall()
+            # rebuild the cache
+            cursor.execute(
+                "SELECT * FROM mongoose.food WHERE food_id IN ({placeholders})".format(
+                    placeholders=", ".join(["%s" for _ in range(len(ingredient_ids))])),
+                tuple(ingredient_ids))
+            self.data['ingredients'] = cursor.fetchall()
         cursor.close()
         self.save()
 
@@ -416,8 +415,7 @@ class Menu(DbEntity):
             raise TypeError("Non-integers being passed to Menu.recipes")
         cursor = self.db.cursor()
         # clear out the cached recipe objects ids
-        if self.data.get('recipes', None):
-            del self.data['recipes']
+        self.data['recipes'] = []
         # Delete the recipe-to-menu records
         cursor.execute("DELETE FROM mongoose.serves WHERE menu_id=%s", (self.id,))
         self.save()
@@ -426,12 +424,13 @@ class Menu(DbEntity):
             cursor.executemany("INSERT INTO mongoose.serves(menu_id, recipe_id) VALUES (%s, %s)",
                                [(self.id, recipe_id) for recipe_id in recipe_ids])
             self.save()
-        # rebuild the cache
-        cursor.execute(
-            "SELECT * FROM mongoose.recipes WHERE rec_id IN ({placeholders})".format(
-                placeholders=", ".join(["%s" for _ in range(len(recipe_ids))])),
-            tuple(recipe_ids))
+            # rebuild the cache
+            cursor.execute(
+                "SELECT * FROM mongoose.recipes WHERE rec_id IN ({placeholders})".format(
+                    placeholders=", ".join(["%s" for _ in range(len(recipe_ids))])),
+                tuple(recipe_ids))
 
-        self.data['recipes'] = cursor.fetchall()
+            self.data['recipes'] = cursor.fetchall()
+
         cursor.close()
         self.save()

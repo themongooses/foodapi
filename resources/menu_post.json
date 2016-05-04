@@ -3,11 +3,16 @@
     {
       "id": 1,
       "time_of_day": "lunch",
-      "date": "2016-07-01",
+      "date": "2016-07-02",
       "recipes": [
-        1,
-        2,
-        3
+        1
+      ]
+    },
+    {
+      "time_of_day": "dinner",
+      "date": "2016-07-15",
+      "recipes":[
+        1,2
       ]
     }
   ]
