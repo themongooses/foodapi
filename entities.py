@@ -325,7 +325,11 @@ class Recipe(DbEntity):
         """
         cursor = self.db.cursor()
         cursor.execute(
-            "SELECT * FROM mongoose.food WHERE food_id IN (SELECT food_id FROM mongoose.ingredients WHERE recipe_id=%s)",
+            "SELECT *\n"
+            "FROM mongoose.food\n"
+            "WHERE food_id IN (SELECT food_id\n"
+            "                  FROM mongoose.ingredients\n"
+            "                  WHERE recipe_id = % s)",
             (self.id,))
         self.data['ingredients'] = cursor.fetchall()
         return self.data['ingredients']
@@ -388,7 +392,11 @@ class Menu(DbEntity):
         """
         cursor = self.db.cursor()
         cursor.execute(
-            "SELECT * FROM mongoose.recipes WHERE rec_id IN (SELECT recipe_id FROM mongoose.serves WHERE menu_id=%s)",
+            "SELECT *\n"
+            "FROM mongoose.recipes\n"
+            "WHERE rec_id IN (SELECT recipe_id\n"
+            "                 FROM mongoose.serves\n"
+            "                 WHERE menu_id = % s)",
             (self.id,))
         self.data['recipes'] = cursor.fetchall()
         cursor.close()
