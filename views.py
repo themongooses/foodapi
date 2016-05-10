@@ -1,9 +1,10 @@
+from copy import deepcopy
+
 from flask import request, jsonify, g
 
 from app import app
 from entities import Food, Menu, NutritionalFact, Recipe
 from utils import nocache, check_date
-from copy import deepcopy
 
 
 ################
@@ -55,13 +56,16 @@ def recipe_update_create():
     ret_val = []
     rec = Recipe()
     j = request.json
+    if not j.get('recipes', None):
+        return jsonify({"error": "Invalid input schema"}), 400
+
     for recipe in j['recipes']:
         recipe_id = recipe.get(id_column, None)
         # Enforce enums
         if recipe.get("category", None) and recipe['category'] not in Recipe.__columns__['category']:
             return jsonify({
                 "error": "Categories must be one of the following: {}".format(Recipe.__columns__['category'])}
-            )
+            ), 400
         if recipe_id:
             rec.find_by_id(recipe_id)
             rec.update(**recipe)
@@ -74,7 +78,7 @@ def recipe_update_create():
             except TypeError:
                 return jsonify({
                     "error": "Ingredient entries must be a list of ids referencing food items in the database"
-                })
+                }), 400
         ret_val.append(deepcopy(rec.data))
     return jsonify({"recipes": ret_val})
 
@@ -211,6 +215,8 @@ def food_update_create():
     ret_val = []
     f = Food()
     j = request.json
+    if not j.get('food', None):
+        return jsonify({"error": "Invalid schema"}), 400
     for food in j['food']:
         food_id = food.get(id_column, None)
         if food_id:
@@ -219,11 +225,11 @@ def food_update_create():
             f.flush()
         else:
             f.create(**food)
-        if j['nutrition']:
+        if j.get('nutrition', None):
             try:
                 f.nutrition = j['nutrition']
             except TypeError:
-                return jsonify({"error": "Nutrition entries must be objects similar to nutritional_fact schema"})
+                return jsonify({"error": "Nutrition entries must be objects similar to nutritional_fact schema"}), 400
         ret_val.append(deepcopy(f.data))
 
     return jsonify({"food": ret_val})
@@ -288,7 +294,7 @@ def get_food_by_name(food_name):
     """
     food = Food().find_by_attribute("food_name", food_name, limit=-1)
     if not food:
-        return jsonify({"error": "No food with name \"{}\" found".format(food_name)}), 404
+        return jsonify({"error": "No food with name {} found".format(food_name)}), 404
     for f in food:
         f['nutrition'] = NutritionalFact().find_by_id(f['fk_nfact_id']) or dict()
     return jsonify({"food": food})
@@ -334,6 +340,8 @@ def nutrition_post():
     ret_val = []
     nfact = NutritionalFact()
     j = request.json
+    if not j.get('facts', None):
+        return jsonify({"error": "Invalid schema"}), 400
     for fact in j['facts']:
         fact_id = fact.get(id_column, None)
         if fact_id:
@@ -427,17 +435,18 @@ def menu_post():
     id_col = Menu.__keys__[0]
     menu = Menu()
     ret_val = []
-
+    if not request.json.get('menus', None):
+        return jsonify({"error": "Invalid schema"}), 400
     for m in request.json['menus']:
         menu_id = m.get(id_col, None)
         # check for data validity
         # Enforce a datetime format
         if m.get('date', None) and not check_date(m['date']):
-            return jsonify({"error": "{} is not a valid date".format(m['date'])})
+            return jsonify({"error": "{} is not a valid date".format(m['date'])}), 400
         # Enforce enums
         if m.get('time_of_day', None):
             if m['time_of_day'] not in Menu.__columns__['time_of_day']:
-                return jsonify({"error": "{} is not a valid time of day".format(m['time_of_day'])})
+                return jsonify({"error": "{} is not a valid time of day".format(m['time_of_day'])}), 400
 
         if menu_id:
             menu.find_by_id(menu_id)
@@ -449,7 +458,8 @@ def menu_post():
             try:
                 menu.recipes = m['recipes']
             except TypeError:
-                return jsonify({"error": "Invalid data. The recipes attribute must be a list of numeric recipe ids"})
+                return jsonify(
+                    {"error": "Invalid data. The recipes attribute must be a list of numeric recipe ids"}), 400
 
         ret_val.append(deepcopy(menu.data))
 
@@ -562,12 +572,12 @@ def get_menu_by_time_of_day_and_date(time_of_day, date):
         return jsonify({"error": "Dates must be in YYYY-MM-DD format"})
 
     if time_of_day not in Menu.__columns__['time_of_day']:
-        return jsonify({"error": "Time of day must be one of {}".format(Menu.__columns__['time_of_day'])})
+        return jsonify({"error": "Time of day must be one of {}".format(Menu.__columns__['time_of_day'])}), 400
 
     menu = Menu().find_by_attribute("date", date, limit=-1)
     menu = filter(lambda x: x['time_of_day'] == time_of_day, menu)
     if not menu:
-        return jsonify({"error": "No menu found for the time of day {} at date {}".format(time_of_day, date)})
+        return jsonify({"error": "No menu found for the time of day {} at date {}".format(time_of_day, date)}), 404
 
     return jsonify({"menu": menu})
 
@@ -582,7 +592,7 @@ def get_menu_by_date(date):
     {"menus": [<list of JSON objects representing a menu record that also contains a list of recipe objects for that menu record>]}
     """
     if not check_date(date):
-        return jsonify({"error": "Dates must be in YYYY-MM-DD format"})
+        return jsonify({"error": "Dates must be in YYYY-MM-DD format"}), 400
 
     menus = Menu().find_by_attribute("date", date, limit=-1)
     if not menus:
@@ -614,7 +624,7 @@ def get_menu_in_date_range(begin, end):
     {"menus": [<list of JSON objects representing a menu record that also contains a list of recipe objects for that menu record>]}
     """
     if not check_date(begin) or not check_date(end):
-        return jsonify({"error": "Dates must be in YYYY-MM-DD format"})
+        return jsonify({"error": "Dates must be in YYYY-MM-DD format"}), 400
 
     menus = Menu().all(comparisons={"date": ["BETWEEN", [begin, end]]})
     if not menus:
